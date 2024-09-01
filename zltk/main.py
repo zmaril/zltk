@@ -9,6 +9,12 @@ import json
 from pydantic import BaseModel
 import nltk
 from multiprocessing import Pool
+from reportlab.platypus import SimpleDocTemplate, Paragraph, PageBreak, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, PropertySet
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.colors import black, white
+from reportlab.lib.enums import TA_LEFT
+
 nltk.download('punkt')
 import reportlab
 
@@ -82,32 +88,89 @@ def process_sentence(located_sentence):
     return (located_sentence, processed_sentence)
 
 
-def generate_markdown(processed_sentences, title):
-    markdown = f"# Explanation for \"{title}\"\n\n"
+class GermanTextParagraphStyle(PropertySet):
+    defaults = {
+        'fontName':"Helvetica",
+        'fontSize':10,
+        'leading':12,
+        'leftIndent':0,
+        'rightIndent':0,
+        'firstLineIndent':0,
+        'alignment':TA_LEFT,
+        'spaceBefore':0,
+        'spaceAfter':0,
+        'bulletFontName':"Helvetica",
+        'bulletFontSize':10,
+        'bulletIndent':0,
+        'textColor': black,
+        'backColor':None,
+        'wordWrap':None,
+        'borderWidth': 0,
+        'borderPadding': 0,
+        'borderColor': None,
+        'borderRadius': None,
+        'allowWidows': 1,
+        'allowOrphans': 0,
+        'textTransform':None,
+        'endDots':None,
+        'splitLongWords':1,
+        'underlineWidth': 1,
+        'bulletAnchor': 'start',
+        'justifyLastLine': 0,
+        'justifyBreaks': 0,
+        'spaceShrinkage': 0.05,
+        'strikeWidth': 1,    #stroke width
+        'underlineOffset': -0.125,    #fraction of fontsize to offset underlines
+        'underlineGap': 1,      #gap for double/triple underline
+        'strikeOffset': 0.25,  #fraction of fontsize to offset strikethrough
+        'strikeGap': 1,        #gap for double/triple strike
+        'linkUnderline': 0,
+        #'underlineColor':  None,
+        #'strikeColor': None,
+        'hyphenationLang': 'en_GB',
+        'uriWasteReduce': 0.3,
+        'embeddedHyphenation': 1,
+        }
+
+def generate_pdf(output_file, processed_sentences, title):
+    doc = SimpleDocTemplate(output_file, pagesize=letter)
+    styles = getSampleStyleSheet()
+
+    flowables = []
+
+    title_s = f"Explanation for \"{title}\"\n\n"
+    title_p = Paragraph(title_s, styles["Title"])
+
+    flowables.append(title_p)
+
     # Make each page a section and each paragraph a sub-section
     page_number = -1 
-    paragraph_number = 0
-
-    print(processed_sentences)
-
+    paragraph_number = -1
 
     for (location, explanation) in processed_sentences:
        # every time there is a page number or paragraph number change, add a new section
         if location.page_number != page_number:
+            # add a new page 
+            flowables.append(PageBreak())
             page_number = location.page_number
-            markdown += f"# Page {page_number} \n\n"
+            flowables.append(Paragraph(f"Page {page_number + 1} \n\n", styles["Heading1"]))
+            
         if location.paragraph_number != paragraph_number:
             paragraph_number = location.paragraph_number
-            markdown += f"## Paragraph {paragraph_number} \n\n"
+            flowables.append(Paragraph(f"Paragraph {paragraph_number + 1} of {page_number + 1} \n\n", styles["Heading2"]))
 
-        markdown += f"German: `{location.sentence}` \n\n"
-        markdown += f"English: `{explanation.translation}` \n\n"
-        markdown += f"{explanation.grammar_explanation}\n\n"
+        flowables.append(Paragraph(f"{location.sentence} \n\n", GermanTextParagraphStyle(name="Helvetica")))
+        flowables.append(Paragraph(f"{explanation.translation} \n\n", styles["Normal"]))
+        # add a new line
+        flowables.append(Paragraph(f"\n\n", styles["Normal"]))
+        flowables.append(Paragraph(f"{explanation.grammar_explanation}\n\n", styles["Normal"]))
         for word_definition in explanation.word_definitions:
-            markdown += f"Word: {word_definition.word}\n\n"
-            markdown += f"Meaning: {word_definition.meaning}\n\n"
-            markdown += f"Examples: {word_definition.examples}\n\n"
-    return markdown
+            flowables.append(Paragraph(f"Word: {word_definition.word}\n\n", styles["Normal"]))
+            flowables.append(Paragraph(f"Meaning: {word_definition.meaning}\n\n", styles["Normal"]))
+            flowables.append(Paragraph(f"Examples: {word_definition.examples}\n\n", styles["Normal"]))
+    doc.build(flowables)
+    # save the pdf
+    print(f"Generated PDF at {output_file}")
 
 def main(input_file, output_file, pages, title):
     if title is None:
@@ -126,17 +189,10 @@ def main(input_file, output_file, pages, title):
                 located_sentences.append(Location(page_number=i, paragraph_number=j, sentence_number=k, sentence=sentences[k]))
     
     processed_sentences = list(map(process_sentence, located_sentences))
-
-    markdown = generate_markdown(processed_sentences, title)
-    
     if output_file is None:
-        output_file = f"{input_file.split('.')[0]}_explained.md"
-
-    with open(output_file, "w", encoding="utf-8") as f:
-        f.write(markdown)
-
-    # run pandoc to convert the markdown to a pdf
-    os.system(f"pandoc -t html {output_file} -o {output_file.split('.')[0]}.pdf")
+        output_file = f"{input_file.split('.')[0]}_explained.pdf"
+    
+    generate_pdf(output_file, processed_sentences, title)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="ZLTK: Zack's Language Toolkit")
