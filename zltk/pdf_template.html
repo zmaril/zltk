@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ title }}</title>
+    <style>
+        body {
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #2980b9;
+            margin-top: 30px;
+        }
+        h3 {
+            color: #16a085;
+        }
+        .sentence {
+            background-color: #f2f2f2;
+            padding: 10px;
+            border-left: 4px solid #3498db;
+            margin-bottom: 15px;
+        }
+        .translation {
+            font-style: italic;
+            color: #555;
+        }
+        .grammar {
+            background-color: #e8f6f3;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+        .word-definition {
+            margin-bottom: 15px;
+            padding-left: 20px;
+        }
+        .word {
+            font-weight: bold;
+            color: #e74c3c;
+        }
+        .part-of-speech {
+            font-style: italic;
+            color: #3498db;
+        }
+        .meaning {
+            margin-left: 20px;
+        }
+        .examples {
+            margin-left: 20px;
+            font-style: italic;
+            color: #555;
+        }
+        @page {
+            @bottom-right {
+                content: counter(page);
+            }
+        }
+        .noun {
+            color: #e74c3c;
+            text-decoration: underline;
+        }
+        .verb {
+            color: #2ecc71;
+        }
+        .adj {
+            color: #f1c40f;
+        }
+        .pronoun {
+            color: #9b59b6;
+        }
+        .preposition {
+            color: #0616a7;
+        }
+        .conjunction {
+            color: #68090f;
+        }
+        .interjection {
+            color: #e74c3c;
+        }
+        .article {
+            color: #6ba3c7;
+        }
+        .numeral {
+            color: black;
+        }
+        .punctuation {
+            color:  black;
+        }
+        .other {
+            color: pink;
+        }
+        .tagged {
+            display: inline-block;
+            position: relative;
+            margin-right: 5px;
+            margin-bottom: 15px;
+        }
+
+        .tagged::after {
+            content: attr(data-pos);
+            position: absolute;
+            bottom: -20px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+            background-color: #f0f0f0;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Explanation for "{{ title }}"</h1>
+
+    {% for location, explanation in processed_sentences %}
+
+        {% if loop.first or location.page_number != loop.previtem[0].page_number  or location.paragraph_number != loop.previtem[0].paragraph_number %}
+            <div style="page-break-before: always"></div>
+        {% endif %}
+        {% if loop.first or location.page_number != loop.previtem[0].page_number %}
+            <h2>Page {{ location.page_number + 1 }}</h2>
+        {% endif %}
+
+        {% if loop.first or location.paragraph_number != loop.previtem[0].paragraph_number %}
+            <h3>Paragraph {{ location.paragraph_number + 1 }} of Page {{ location.page_number + 1 }}</h3>
+        {% endif %}
+
+        <div class="sentence">
+            <strong>
+                {% for word_definition in explanation.word_definitions %}
+                    <span class="tagged {{ word_definition.part_of_speech.value }}" data-pos="{{ word_definition.part_of_speech.name }}">{{ word_definition.word }}</span>
+                {% endfor %}
+            </strong>
+        </div>
+        <p class="translation">{{ explanation.translation }}</p>
+        <div class="grammar">
+            <strong>Grammar Explanation:</strong><br>
+            {{ explanation.grammar_explanation }}
+        </div>
+
+        {% for word_definition in explanation.word_definitions %}
+            <div class="word-definition">
+                <div><span class="word">{{ word_definition.word }}</span> - {{ word_definition.part_of_speech.value }}: {{ word_definition.meaning }}</div>
+                <div class="examples">
+                    {{ word_definition.examples|join(', ') }}
+                </div>
+            </div>
+        {% endfor %}
+    {% endfor %}
+</body>
+</html>
